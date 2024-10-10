@@ -142,21 +142,48 @@ int countLiveNeighbours(const vector<vector<Cell>>& grid, int x, int y)
 	return liveNeighbours;
 }
 
-void UpdateGrid(vector<vector<Cell>> &grid)
+void UpdateCells(vector<vector<Cell>> &grid)
 {
+	vector<vector<Cell>> newGrid = grid;
+
 	for (int x = 0; x < grid.size(); x++)
 	{
 		for (int y = 0; y < grid.size(); y++)
 		{
-			
+			int totalNeighbours = countLiveNeighbours(grid, x, y);
+
+			if (totalNeighbours < 2 || totalNeighbours > 3)
+			{
+				// Unpopulated case: Death
+				newGrid[x][y] = false;
+			}
+			else if (totalNeighbours == 3)
+			{
+				// Handle Reproduction
+				newGrid[x][y] = true;
+			}
+			// No change needed if total neighbours == 2.
 		}
 	}
+	grid = newGrid;
 }
 
 
-void runSimulation() 
+void runSimulation(vector<vector<Cell>> &grid) 
 {
 	// Runs the simulation for x cycles.
+	int currentCycle = 0;
+	int totalCycles;
+	cout << endl << "Enter the number of phases to run: ";
+	cin >> totalCycles;
+	
+	outputGrid(grid);
+	while (currentCycle < totalCycles)
+	{
+		UpdateCells(grid);
+		outputGrid(grid);
+		currentCycle++;
+	}
 }
 void saveSimulation()
 {
@@ -174,9 +201,7 @@ int main()
 	vector<vector<Cell>> grid = generateGrid();
 	createCells(grid);
 	scatterCells(grid);
-	outputGrid(grid);
+	runSimulation(grid);
 
-	int liveNeighbours = countLiveNeighbours(grid, 2, 2);
-	cout << endl << "Live neighbours of cell (2, 2): " << liveNeighbours << endl;
 	return 0;
 }
