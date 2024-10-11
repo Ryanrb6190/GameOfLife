@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <ctime>
+#include <fstream>
 
 using namespace std;
 
@@ -10,7 +12,7 @@ class Cell
 		bool isAlive;
 	Cell()
 	{
-		isAlive = NULL;
+		isAlive = false;
 	}
 	Cell(bool isAlive) : isAlive(isAlive) {}
 	~Cell()
@@ -91,7 +93,6 @@ void scatterCells(vector<vector<Cell>> &grid)
 	int numCells;
 	int totalCells = 0;
 
-	srand(time(0)); // Generate a new seed
 
 	cout << endl << "Enter total of alive cells: ";
 	cin >> numCells;
@@ -111,7 +112,7 @@ void scatterCells(vector<vector<Cell>> &grid)
 		// If the cell is not already alive
 		if (!grid[xPos][yPos].isAlive)
 		{
-			grid[xPos][yPos] = 1;
+			grid[xPos][yPos] = true;
 			totalCells++;
 		}
 	}
@@ -148,7 +149,7 @@ void UpdateCells(vector<vector<Cell>> &grid)
 
 	for (int x = 0; x < grid.size(); x++)
 	{
-		for (int y = 0; y < grid.size(); y++)
+		for (int y = 0; y < grid[x].size(); y++)
 		{
 			int totalNeighbours = countLiveNeighbours(grid, x, y);
 
@@ -185,9 +186,18 @@ void runSimulation(vector<vector<Cell>> &grid)
 		currentCycle++;
 	}
 }
-void saveSimulation()
+void saveSimulation(vector<vector<Cell>> &grid)
 {
 	// Saves the simulation to the drive.
+	string filename;
+	cout << endl << "Enter file name: ";
+	cin >> filename;
+	ofstream gridSaveFile(filename + ".txt");
+	if (gridSaveFile.is_open())
+	{
+		gridSaveFile << grid;
+	}
+	gridSaveFile.close();
 }
 void loadSimulation() 
 {
@@ -198,10 +208,12 @@ void loadSimulation()
 
 int main()
 {
+	srand(time(0)); // Generate a new seed
 	vector<vector<Cell>> grid = generateGrid();
 	createCells(grid);
 	scatterCells(grid);
 	runSimulation(grid);
+	saveSimulation(grid);
 
 	return 0;
 }
