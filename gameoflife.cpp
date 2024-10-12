@@ -7,35 +7,40 @@
 
 using namespace std;
 
+template <typename T>
 class Cell 
 {
 	public:
-		bool isAlive;
+		T isAlive;
 	Cell()
 	{
-		isAlive = false;
+		isAlive = T();
 	}
-	Cell(bool isAlive) : isAlive(isAlive) {}
+	Cell(T isAlive) : isAlive(isAlive) {}
 	~Cell()
 	{
 		// Delete any allocated memory used by the object
 	}
 
 	// Operator = to set the status of a cell.
-	Cell& operator=(const bool status)
+	Cell& operator=(const T& status)
 	{
 		this->isAlive = status;
 		return *this;
 	}
 	char getIcon() const
 	{
-		return (isAlive) ? 'O' : ' ';
+		return isAlive ? 'O' : ' ';
 	}
 
 };
 
+template <typename T>
+using Grid = vector<vector<Cell<T>>>;
+
 // Operator << to print the grid of cells.
-ostream& operator << (ostream& os, const vector<vector<Cell>>& grid)
+template <typename T>
+ostream& operator << (ostream& os, const Grid<T>& grid)
 {
 	for (const auto& row : grid)
 	{
@@ -48,13 +53,15 @@ ostream& operator << (ostream& os, const vector<vector<Cell>>& grid)
 	return os;
 }
 
-// Operator + to count the total of live neighbours.
-int operator +(const Cell& a, const Cell& b)
-{
-	return (a.isAlive ? 1 : 0) + (b.isAlive ? 1 : 0);
-}
+//// Operator + to count the total of live neighbours.
+//template <typename T>
+//int operator +(const Cell& a, const Cell& b)
+//{
+//	return (a.isAlive ? 1 : 0) + (b.isAlive ? 1 : 0);
+//}
 
-vector<vector<Cell>> generateGrid()
+template <typename T>
+Grid<T> generateGrid()
 {
 	// Generates the size of the grid based on user inputs.
 	int xSpaces;
@@ -66,12 +73,14 @@ vector<vector<Cell>> generateGrid()
 	cout << endl << "Enter number of spaces on the Y Axis: ";
 	cin >> ySpaces;
 
-	vector<vector<Cell>> grid(xSpaces, vector<Cell>(ySpaces));
+	Grid<T> grid(xSpaces, vector<Cell<T>>(ySpaces));
 	
 
 	return grid;
 }
-void createCells(vector<vector<Cell>> &grid) 
+
+template <typename T>
+void createCells(Grid<T> &grid) 
 {
 	for (int x = 0; x < grid.size(); x++)
 	{
@@ -82,14 +91,9 @@ void createCells(vector<vector<Cell>> &grid)
 	}
 }
 
-void outputGrid(vector<vector<Cell>> &grid)
-{
-	// Outputs the grid with the overloaded << operator.
-	cout << grid;
-}
 
-
-void scatterCells(vector<vector<Cell>> &grid)
+template <typename T>
+void scatterCells(Grid<T> &grid)
 {
 	int numCells;
 	int totalCells = 0;
@@ -120,11 +124,12 @@ void scatterCells(vector<vector<Cell>> &grid)
 }
 
 // Count the total of live cells around cell at grid (x, y)
-int countLiveNeighbours(const vector<vector<Cell>>& grid, int x, int y)
+template <typename T>
+int countLiveNeighbours(Grid<T>& grid, int x, int y)
 {
 	int liveNeighbours = 0;
 	int rows = grid.size();
-	int cols = grid[0].size();
+	int cols = grid[0].size(); 
 
 	for (int i = -1; i <= 1; ++i)
 	{
@@ -144,9 +149,10 @@ int countLiveNeighbours(const vector<vector<Cell>>& grid, int x, int y)
 	return liveNeighbours;
 }
 
-void UpdateCells(vector<vector<Cell>> &grid)
+template <typename T>
+void UpdateCells(Grid<T> &grid)
 {
-	vector<vector<Cell>> newGrid = grid;
+	Grid<T> newGrid = grid;
 
 	for (int x = 0; x < grid.size(); x++)
 	{
@@ -170,8 +176,8 @@ void UpdateCells(vector<vector<Cell>> &grid)
 	grid = newGrid;
 }
 
-
-void runSimulation(vector<vector<Cell>> &grid) 
+template <typename T>
+void runSimulation(Grid<T> &grid) 
 {
 	// Runs the simulation for x cycles.
 	int currentCycle = 0;
@@ -179,15 +185,16 @@ void runSimulation(vector<vector<Cell>> &grid)
 	cout << endl << "Enter the number of phases to run: ";
 	cin >> totalCycles;
 	
-	outputGrid(grid);
+	cout << grid;
 	while (currentCycle < totalCycles)
 	{
 		UpdateCells(grid);
-		outputGrid(grid);
+		cout << grid;
 		currentCycle++;
 	}
 }
-void saveSimulation(vector<vector<Cell>> &grid)
+template <typename T>
+void saveSimulation(Grid<T> &grid)
 {
 	// Saves the simulation to the drive.
 	string filename;
@@ -200,7 +207,9 @@ void saveSimulation(vector<vector<Cell>> &grid)
 	}
 	gridSaveFile.close();
 }
-void loadSimulation(vector<vector<Cell>> &grid) 
+
+template <typename T>
+void loadSimulation(Grid<T> &grid) 
 {
 	// Loads the simulation from the drive.
 	string loadedRow;
@@ -221,17 +230,17 @@ void loadSimulation(vector<vector<Cell>> &grid)
 
 	while (getline(gridLoadFile, loadedRow))
 	{
-		vector<Cell> newRow;
+		vector<Cell<T>> newRow;
 
 		for (char cellChar : loadedRow)
 		{
 			if (cellChar == 'O') // If alive cell.
 			{
-				newRow.push_back(Cell(true));
+				newRow.push_back(Cell<T>(true));
 			}
 			else if (cellChar == ' ')
 			{
-				newRow.push_back(Cell(false));
+				newRow.push_back(Cell<T>(false));
 			}
 		}
 		grid.push_back(newRow);
@@ -244,7 +253,7 @@ void loadSimulation(vector<vector<Cell>> &grid)
 int main()
 {
 	srand(time(0)); // Generate a new seed
-	vector<vector<Cell>> grid = generateGrid();
+	Grid<bool> grid = generateGrid<bool>();
 	/*createCells(grid);
 	scatterCells(grid);
 	runSimulation(grid);
