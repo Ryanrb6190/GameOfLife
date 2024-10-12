@@ -35,6 +35,8 @@ class Cell
 
 };
 
+
+// Creates a Template for to enhance code conciseness.
 template <typename T>
 using Grid = vector<vector<Cell<T>>>;
 
@@ -53,13 +55,7 @@ ostream& operator << (ostream& os, const Grid<T>& grid)
 	return os;
 }
 
-//// Operator + to count the total of live neighbours.
-//template <typename T>
-//int operator +(const Cell& a, const Cell& b)
-//{
-//	return (a.isAlive ? 1 : 0) + (b.isAlive ? 1 : 0);
-//}
-
+// Creates an empty 2D vector to use as a grid.
 template <typename T>
 Grid<T> generateGrid()
 {
@@ -79,6 +75,7 @@ Grid<T> generateGrid()
 	return grid;
 }
 
+// Fills the grid with dead cells.
 template <typename T>
 void createCells(Grid<T> &grid) 
 {
@@ -91,7 +88,7 @@ void createCells(Grid<T> &grid)
 	}
 }
 
-
+// Randomly distribute cells across the grid.
 template <typename T>
 void scatterCells(Grid<T> &grid)
 {
@@ -149,6 +146,7 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 	return liveNeighbours;
 }
 
+// Updates Cells based on its fate based on neighbours.
 template <typename T>
 void UpdateCells(Grid<T> &grid)
 {
@@ -176,6 +174,7 @@ void UpdateCells(Grid<T> &grid)
 	grid = newGrid;
 }
 
+// Updates the grid for X cycles.
 template <typename T>
 void runSimulation(Grid<T> &grid) 
 {
@@ -193,6 +192,8 @@ void runSimulation(Grid<T> &grid)
 		currentCycle++;
 	}
 }
+
+// Saves the Grid onto the system storage. Allows users to enter their own filenames.
 template <typename T>
 void saveSimulation(Grid<T> &grid)
 {
@@ -208,6 +209,7 @@ void saveSimulation(Grid<T> &grid)
 	gridSaveFile.close();
 }
 
+// Loads a file from the system storage and updates the grid based on the position of the cells inside the text file.
 template <typename T>
 void loadSimulation(Grid<T> &grid) 
 {
