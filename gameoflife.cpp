@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <string>
 
 using namespace std;
 
@@ -199,9 +200,43 @@ void saveSimulation(vector<vector<Cell>> &grid)
 	}
 	gridSaveFile.close();
 }
-void loadSimulation() 
+void loadSimulation(vector<vector<Cell>> &grid) 
 {
 	// Loads the simulation from the drive.
+	string loadedRow;
+	string filename;
+
+	cout << endl << "Enter file name to load: ";
+	cin >> filename;
+
+	ifstream gridLoadFile(filename + ".txt");
+
+	if (!gridLoadFile.is_open()) 
+	{
+		cout << endl << "Error: Unable to open the file.";
+		return;
+	}
+
+	grid.clear(); 
+
+	while (getline(gridLoadFile, loadedRow))
+	{
+		vector<Cell> newRow;
+
+		for (char cellChar : loadedRow)
+		{
+			if (cellChar == 'O') // If alive cell.
+			{
+				newRow.push_back(Cell(true));
+			}
+			else if (cellChar == ' ')
+			{
+				newRow.push_back(Cell(false));
+			}
+		}
+		grid.push_back(newRow);
+	}
+	gridLoadFile.close();
 }
 
 
@@ -210,10 +245,13 @@ int main()
 {
 	srand(time(0)); // Generate a new seed
 	vector<vector<Cell>> grid = generateGrid();
-	createCells(grid);
+	/*createCells(grid);
 	scatterCells(grid);
 	runSimulation(grid);
-	saveSimulation(grid);
+	saveSimulation(grid);*/
 
+	loadSimulation(grid);
+	cout << grid;
+	runSimulation(grid);
 	return 0;
 }
