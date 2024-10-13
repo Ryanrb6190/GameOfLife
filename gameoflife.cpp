@@ -11,26 +11,28 @@ template <typename T>
 class Cell 
 {
 	public:
-		T isAlive;
+		T status;
 	Cell()
 	{
-		isAlive = T();
+		status = T();
 	}
-	Cell(T isAlive) : isAlive(isAlive) {}
+	Cell(T status) : status(status) {}
 	~Cell()
 	{
 		// Delete any allocated memory used by the object
 	}
 
-	// Operator = to set the status of a cell.
+	// Override operator = to set the status of a cell.
 	Cell& operator=(const T& status)
 	{
-		this->isAlive = status;
+		this->status = status;
 		return *this;
 	}
+
+	// Returns a 'O' if the cell is alive, ' ' if the cell is dead.
 	char getIcon() const
 	{
-		return isAlive ? 'O' : ' ';
+		return status ? 'O' : ' ';
 	}
 
 };
@@ -83,7 +85,7 @@ void createCells(Grid<T> &grid)
 	{
 		for (int y = 0; y < grid[x].size(); y++)
 		{
-			grid[x][y] = Cell(false);
+			grid[x][y] = Cell<T>(false);
 		}
 	}
 }
@@ -108,11 +110,12 @@ void scatterCells(Grid<T> &grid)
 
 	while (totalCells < numCells)
 	{	
+		// Generate an X and Y position within grid boundaries.
 		int xPos = rand() % grid.size();
-		int yPos = rand() % grid[0].size();
+		int yPos = rand() % grid[0].size(); // Use collum 0 as a safety.
 
 		// If the cell is not already alive
-		if (!grid[xPos][yPos].isAlive)
+		if (!grid[xPos][yPos].status)
 		{
 			grid[xPos][yPos] = true;
 			totalCells++;
@@ -139,7 +142,8 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 			// Ensure the indices are within bounds
 			if ( (newX >= 0 && newX < rows) && (newY >= 0 && newY < cols) )
 			{
-				liveNeighbours += grid[newX][newY].isAlive ? 1 : 0;
+				// Add 1 or 0 based on cell's status.
+				liveNeighbours += grid[newX][newY].status ? 1 : 0;
 			}
 		}
 	}
@@ -228,7 +232,10 @@ void loadSimulation(Grid<T> &grid)
 		return;
 	}
 
+
+	// Clears the grid allowing for the loaded layout to be copied onto it.
 	grid.clear(); 
+
 
 	while (getline(gridLoadFile, loadedRow))
 	{
@@ -240,7 +247,7 @@ void loadSimulation(Grid<T> &grid)
 			{
 				newRow.push_back(Cell<T>(true));
 			}
-			else if (cellChar == ' ')
+			else if (cellChar == ' ') 
 			{
 				newRow.push_back(Cell<T>(false));
 			}
@@ -256,13 +263,9 @@ int main()
 {
 	srand(time(0)); // Generate a new seed
 	Grid<bool> grid = generateGrid<bool>();
-	/*createCells(grid);
+	createCells(grid);
 	scatterCells(grid);
 	runSimulation(grid);
-	saveSimulation(grid);*/
-
-	loadSimulation(grid);
-	cout << grid;
-	runSimulation(grid);
+	saveSimulation(grid);
 	return 0;
 }
