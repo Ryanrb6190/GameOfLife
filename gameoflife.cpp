@@ -259,6 +259,8 @@ bool loadSimulation(Grid<T> &grid)
 	if (!gridLoadFile.is_open()) 
 	{
 		cout << endl << "Error: Unable to open the file.";
+		cin.clear();
+		cin.ignore(numeric_limits<streamsize>::max(), '\n');
 		return false;
 	}
 
@@ -295,14 +297,14 @@ void displaySaveMenu(Grid<T> &grid)
 	bool saving = true;
 	int choice;
 	cout << endl << "Simulation Finished!";
-	cout << endl << "Would you like to save the final grid?";
-	cout << endl << "|| 1. Yes";
-	cout << endl << "|| 2. No";
-	cout << endl << "Select an option: ";
-	cin >> choice;
-	
+
 	while (saving)
 	{
+		cout << endl << "Would you like to save the final grid?";
+		cout << endl << "|| 1. Yes";
+		cout << endl << "|| 2. No";
+		cout << endl << "Select an option: ";
+		cin >> choice;
 		switch (choice)
 		{
 			case 1:
@@ -311,6 +313,11 @@ void displaySaveMenu(Grid<T> &grid)
 				break;
 			case 2:
 				saving = false;
+				break;
+			default:
+				cout << "Error: Invalid Option. Please try again.";
+				cin.clear();
+				cin.ignore(numeric_limits<streamsize>::max(), '\n');
 				break;
 		}
 	}
@@ -357,6 +364,9 @@ void displayWelcomeMenu(Grid<T> &grid)
 				break;
 			default:
 				cout << endl << "Error: Invalid Option. Please try again.";
+				cin.clear();
+				cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				break;
 		}
 	}
 }
