@@ -8,39 +8,43 @@
 using namespace std;
 
 template <typename T>
-class Cell 
+class CellBase
 {
 	public:
+		virtual ~CellBase() = default; // Virtual Destructor for cleanup.
+
+		virtual bool isAlive() const = 0;
+		virtual void setAlive(T status) = 0;
+		virtual char getIcon() const = 0;
+};
+
+
+
+template <typename T>
+class NormalCell : public CellBase<T>
+{
+	private:
 		T status;
-	Cell()
-	{
-		status = T();
-	}
-	Cell(T status) : status(status) {}
-	~Cell()
-	{
-		// Delete any allocated memory used by the object
-	}
+	public:
 
-	// Override operator = to set the status of a cell.
-	Cell& operator=(const T& status)
-	{
-		this->status = status;
-		return *this;
-	}
+		NormalCell(T status) : status(status) {}
 
-	// Returns a 'O' if the cell is alive, ' ' if the cell is dead.
-	char getIcon() const
-	{
-		return status ? 'O' : ' ';
-	}
+		bool isAlive() const override { return status; }
+
+		void setAlive(T status) override { this->status = status;}
+
+		// Returns a 'O' if the cell is alive, ' ' if the cell is dead.
+		char getIcon() const override
+		{
+			return status ? 'O' : ' ';
+		}
 
 };
 
 
 // Creates a Template for to enhance code conciseness.
 template <typename T>
-using Grid = vector<vector<Cell<T>>>;
+using Grid = vector<vector<CellBase<T>*>>;
 
 // Operator << to print the grid of cells.
 template <typename T>
@@ -50,7 +54,14 @@ ostream& operator << (ostream& os, const Grid<T>& grid)
 	{
 		for (const auto& cell : row)
 		{
-			os << "." << cell.getIcon();
+			if (cell)
+			{
+				os << "." << cell->getIcon();
+			}
+			else
+			{
+				os << "X"; // print empty for null pointers.
+			}
 		}
 		os << "." << endl;
 	}
@@ -71,11 +82,24 @@ Grid<T> generateGrid()
 	cout << endl << "Enter number of spaces on the Y Axis: ";
 	cin >> ySpaces;
 
-	Grid<T> grid(xSpaces, vector<Cell<T>>(ySpaces));
+	Grid<T> grid(xSpaces, vector<CellBase<T>*>(ySpaces));
 	
 
 	return grid;
 }
+
+template <typename T>
+void cleanupGrid(Grid<T>& grid)
+{
+	for (auto& row : grid)
+	{
+		for (auto& cell : row)
+		{
+			delete cell; // Deallocate memory used by each cell object.
+		}
+	}
+}
+
 
 // Fills the grid with dead cells.
 template <typename T>
@@ -85,7 +109,7 @@ void createCells(Grid<T> &grid)
 	{
 		for (int y = 0; y < grid[x].size(); y++)
 		{
-			grid[x][y] = Cell<T>(false);
+			grid[x][y] = new NormalCell<T>(false);
 		}
 	}
 }
@@ -115,9 +139,9 @@ void scatterCells(Grid<T> &grid)
 		int yPos = rand() % grid[0].size(); // Use collum 0 as a safety.
 
 		// If the cell is not already alive
-		if (!grid[xPos][yPos].status)
+		if (!grid[xPos][yPos]->isAlive())
 		{
-			grid[xPos][yPos] = true;
+			grid[xPos][yPos]->setAlive(true);
 			totalCells++;
 		}
 	}
@@ -143,7 +167,7 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 			if ( (newX >= 0 && newX < rows) && (newY >= 0 && newY < cols) )
 			{
 				// Add 1 or 0 based on cell's status.
-				liveNeighbours += grid[newX][newY].status ? 1 : 0;
+				liveNeighbours += grid[newX][newY]->isAlive() ? 1 : 0;
 			}
 		}
 	}
@@ -154,7 +178,7 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 template <typename T>
 void UpdateCells(Grid<T> &grid)
 {
-	Grid<T> newGrid = grid;
+	Grid<T> newGrid (grid.size(), vector<CellBase<T>*>(grid[0].size()));
 
 	for (int x = 0; x < grid.size(); x++)
 	{
@@ -165,16 +189,22 @@ void UpdateCells(Grid<T> &grid)
 			if (totalNeighbours < 2 || totalNeighbours > 3)
 			{
 				// Unpopulated case: Death
-				newGrid[x][y] = false;
+				newGrid[x][y] = new NormalCell<T>(false);
 			}
 			else if (totalNeighbours == 3)
 			{
 				// Handle Reproduction
-				newGrid[x][y] = true;
+				newGrid[x][y] = new NormalCell<T>(true);
+			}
+			else
+			{
+				newGrid[x][y] = new NormalCell<T>(grid[x][y]->isAlive());
 			}
 			// No change needed if total neighbours == 2.
 		}
 	}
+
+	cleanupGrid(grid);
 	grid = newGrid;
 }
 
@@ -234,22 +264,23 @@ void loadSimulation(Grid<T> &grid)
 
 
 	// Clears the grid allowing for the loaded layout to be copied onto it.
+	cleanupGrid(grid);
 	grid.clear(); 
 
 
 	while (getline(gridLoadFile, loadedRow))
 	{
-		vector<Cell<T>> newRow;
+		vector<NormalCell<T>> newRow;
 
 		for (char cellChar : loadedRow)
 		{
 			if (cellChar == 'O') // If alive cell.
 			{
-				newRow.push_back(Cell<T>(true));
+				newRow.push_back(new NormalCell<T>(true));
 			}
 			else if (cellChar == ' ') 
 			{
-				newRow.push_back(Cell<T>(false));
+				newRow.push_back(new NormalCell<T>(false));
 			}
 		}
 		grid.push_back(newRow);
@@ -267,5 +298,7 @@ int main()
 	scatterCells(grid);
 	runSimulation(grid);
 	saveSimulation(grid);
+
+	cleanupGrid(grid);
 	return 0;
 }
