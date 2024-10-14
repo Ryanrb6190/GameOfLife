@@ -245,7 +245,7 @@ void saveSimulation(Grid<T> &grid)
 
 // Loads a file from the system storage and updates the grid based on the position of the cells inside the text file.
 template <typename T>
-void loadSimulation(Grid<T> &grid) 
+bool loadSimulation(Grid<T> &grid) 
 {
 	// Loads the simulation from the drive.
 	string loadedRow;
@@ -259,7 +259,7 @@ void loadSimulation(Grid<T> &grid)
 	if (!gridLoadFile.is_open()) 
 	{
 		cout << endl << "Error: Unable to open the file.";
-		return;
+		return false;
 	}
 
 
@@ -270,7 +270,7 @@ void loadSimulation(Grid<T> &grid)
 
 	while (getline(gridLoadFile, loadedRow))
 	{
-		vector<NormalCell<T>> newRow;
+		vector<CellBase<T>*> newRow;
 
 		for (char cellChar : loadedRow)
 		{
@@ -286,19 +286,88 @@ void loadSimulation(Grid<T> &grid)
 		grid.push_back(newRow);
 	}
 	gridLoadFile.close();
+	return true;
 }
 
+template <typename T>
+void displaySaveMenu(Grid<T> &grid)
+{
+	bool saving = true;
+	int choice;
+	cout << endl << "Simulation Finished!";
+	cout << endl << "Would you like to save the final grid?";
+	cout << endl << "|| 1. Yes";
+	cout << endl << "|| 2. No";
+	cout << endl << "Select an option: ";
+	cin >> choice;
+	
+	while (saving)
+	{
+		switch (choice)
+		{
+			case 1:
+				saveSimulation(grid);
+				saving = false;
+				break;
+			case 2:
+				saving = false;
+				break;
+		}
+	}
 
+
+}
+void displayOptionMenu()
+{
+	cout << endl << "|| 1. Create New Simulation";
+	cout << endl << "|| 2. Load Simulation from Storage";
+	cout << endl << "|| 3. Exit Game";
+}
+template <typename T>
+void displayWelcomeMenu(Grid<T> &grid)
+{
+	int choice;
+	bool running = true;
+	cout << "|| Welcome to Ryan's version of John Conway's: Game of Life! ||";
+
+	while (running)
+	{
+		displayOptionMenu();
+		cout << endl << "Select an option: ";
+		cin >> choice;
+
+		switch (choice)
+		{
+			case 1:
+				grid = generateGrid<bool>();
+				createCells(grid);
+				scatterCells(grid);
+				runSimulation(grid);
+				displaySaveMenu(grid);
+				break;
+			case 2:
+				if (loadSimulation(grid))
+				{
+					runSimulation(grid);
+					displaySaveMenu(grid);
+				}
+				break;
+			case 3:
+				running = false; // Quit the loop;
+				break;
+			default:
+				cout << endl << "Error: Invalid Option. Please try again.";
+		}
+	}
+}
 
 int main()
 {
 	srand(time(0)); // Generate a new seed
-	Grid<bool> grid = generateGrid<bool>();
-	createCells(grid);
-	scatterCells(grid);
-	runSimulation(grid);
-	saveSimulation(grid);
+	Grid<bool> grid;
 
-	cleanupGrid(grid);
+	displayWelcomeMenu(grid);
+
+	cleanupGrid(grid); // Always clean up before exiting.
 	return 0;
 }
