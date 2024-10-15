@@ -45,6 +45,7 @@ class NormalCell : public CellBase<T>
 };
 
 
+
 // Creates a Template for to enhance code conciseness.
 template <typename T>
 using Grid = vector<vector<CellBase<T>*>>;
@@ -53,6 +54,7 @@ using Grid = vector<vector<CellBase<T>*>>;
 template <typename T>
 ostream& operator << (ostream& os, const Grid<T>& grid)
 {
+	os << "-------------------------------------------------------------------------------" << endl;
 	for (const auto& row : grid)
 	{
 		for (const auto& cell : row)
@@ -178,6 +180,71 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 }
 
 template <typename T>
+bool matchesPattern(Grid<T>& grid, const vector<vector<bool>>& pattern, int startX, int startY)
+{
+	int patternRows = pattern.size();
+	int patternCols = pattern[0].size();
+	int gridRows = grid.size();
+	int gridCols = grid[0].size();
+
+	// Check if the pattern fits within the grid boundaries
+
+	if (startX + patternRows > gridRows || startY + patternCols > gridCols)
+	{
+		return false;
+	}
+	for (int i = 0; i < patternRows; ++i)
+	{
+		for (int j = 0; j < patternCols; ++j)
+		{
+			if (grid[startX + i][startY + j]->isAlive() != pattern[i][j])
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+template <typename T>
+bool isBlockOrBeehive(Grid<T>& grid)
+{
+	int rows = grid.size();
+	int cols = grid[0].size();
+
+	// Define Patterns
+
+	// Block
+
+	vector<vector<bool>> blockPattern = {
+		{true, true},
+		{true, true}
+	};
+
+	// Behive
+
+	vector<vector<bool>> beehivePattern = {
+		{false, true, true, false},
+		{true, false, false, true},
+		{false, true, true, false},
+	};
+
+	// Check every position in the grid for both patterns
+	for (int x = 0; x < rows; ++x)
+	{
+		for (int y = 0; y < cols; ++y)
+		{
+			// Check for pattern at this position
+			if (matchesPattern(grid, blockPattern, x, y) || matchesPattern(grid, beehivePattern, x, y))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+template <typename T>
 void updateCellsSegment(Grid<T>& grid, Grid<T>& newGrid, int startRow, int endRow)
 {
 	for (int x = startRow; x < endRow; x++)
@@ -201,13 +268,6 @@ void updateCellsSegment(Grid<T>& grid, Grid<T>& newGrid, int startRow, int endRo
 		}
 	}
 }
-
-
-
-
-
-
-
 
 // Updates Cells in parallel.
 template <typename T>
@@ -235,7 +295,6 @@ void UpdateCells(Grid<T> &grid)
 	grid = newGrid;
 }
 
-
 // Updates the grid for X cycles.
 template <typename T>
 void runSimulation(Grid<T> &grid) 
@@ -243,16 +302,37 @@ void runSimulation(Grid<T> &grid)
 	// Runs the simulation for x cycles.
 	int currentCycle = 0;
 	int totalCycles;
+	int stableGenerations = 0; // Track how many 'frames' the pattern appears for.
+
 	cout << endl << "Enter the number of phases to run: ";
 	cin >> totalCycles;
 	
 	cout << grid;
+
 	while (currentCycle < totalCycles)
 	{
 		UpdateCells(grid);
-		cout << grid;
+
+		// Check for block or beehive after each generation of cells.
+		if (currentCycle > 0 && isBlockOrBeehive(grid))
+		{
+			stableGenerations++;
+		}
+		else {
+			stableGenerations = 0;
+		}
+		
+		if (stableGenerations >= 2)
+		{
+			cout << endl << "Block or Beehive detected after " << currentCycle << " generations!";
+			return;
+		}
+
 		currentCycle++;
+		cout << grid;
 	}
+
+	cout << endl << "No pattern detected!";
 }
 
 // Saves the Grid onto the system storage. Allows users to enter their own filenames.
@@ -300,6 +380,10 @@ bool loadSimulation(Grid<T> &grid)
 
 	while (getline(gridLoadFile, loadedRow))
 	{
+		if (loadedRow.find("---") != string::npos)
+		{
+			continue;
+		}
 		vector<CellBase<T>*> newRow;
 
 		for (char cellChar : loadedRow)
