@@ -7,6 +7,7 @@
 #include <thread>
 #include <mutex>
 #include <limits>
+#include <random>
 
 using namespace std;
 
@@ -100,7 +101,11 @@ void cleanupGrid(Grid<T>& grid)
 	{
 		for (auto& cell : row)
 		{
-			delete cell; // Deallocate memory used by each cell object.
+			if (cell)
+			{
+				delete cell; // Deallocate memory used by each cell object.
+				cell = nullptr; // Set pointer to nullptr to avoid dangling pointers.
+			}
 		}
 	}
 }
@@ -121,14 +126,18 @@ void createCells(Grid<T> &grid)
 
 // Randomly distribute cells across the grid.
 template <typename T>
-void scatterCells(Grid<T> &grid)
+void scatterCells(Grid<T> &grid, int numCells, unsigned int& seed)
 {
-	int numCells;
+	mt19937 gen(seed);
+	uniform_int_distribution<> xDist(0, grid.size() - 1);
+	uniform_int_distribution<> yDist(0, grid[0].size() - 1);
+
 	int totalCells = 0;
 
-
-	cout << endl << "Enter total of alive cells: ";
-	cin >> numCells;
+	if (!numCells) {
+		cout << endl << "Enter total of alive cells: ";
+		cin >> numCells;
+	}
 	
 	// Ensure the number of live cells is not greater than the total grid spaces.
 	int maxCells = grid.size() * grid[0].size();
@@ -140,8 +149,8 @@ void scatterCells(Grid<T> &grid)
 	while (totalCells < numCells)
 	{	
 		// Generate an X and Y position within grid boundaries.
-		int xPos = rand() % grid.size();
-		int yPos = rand() % grid[0].size(); // Use collum 0 as a safety.
+		int xPos = xDist(gen);
+		int yPos = yDist(gen);
 
 		// If the cell is not already alive
 		if (!grid[xPos][yPos]->isAlive())
@@ -193,6 +202,7 @@ bool matchesPattern(Grid<T>& grid, const vector<vector<bool>>& pattern, int star
 	{
 		return false;
 	}
+
 	for (int i = 0; i < patternRows; ++i)
 	{
 		for (int j = 0; j < patternCols; ++j)
@@ -203,6 +213,33 @@ bool matchesPattern(Grid<T>& grid, const vector<vector<bool>>& pattern, int star
 			}
 		}
 	}
+
+	// Ensure that no extra live cells exist
+	for (int i = -1; i < patternRows + 1; ++i)
+	{
+		for (int j = -1; j < patternCols + 1; ++j)
+		{
+			// Skip cells inside the pattern
+			if (i >= 0 && i < patternRows && j >= 0 && j < patternCols)
+			{
+				continue;
+			}
+
+			int checkX = startX + i;
+			int checkY = startY + j;
+
+			// Ensure  the cell is within grid boundaries
+			if (checkX >= 0 && checkX < gridRows && checkY >= 0 && checkY < gridCols)
+			{
+				// If any surrounding cell is alive, return false
+				if (grid[checkX][checkY]->isAlive())
+				{
+					return false;
+				}
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -218,7 +255,7 @@ bool isBlockOrBeehive(Grid<T>& grid)
 
 	vector<vector<bool>> blockPattern = {
 		{true, true},
-		{true, true}
+		{true, true},
 	};
 
 	// Behive
@@ -226,7 +263,15 @@ bool isBlockOrBeehive(Grid<T>& grid)
 	vector<vector<bool>> beehivePattern = {
 		{false, true, true, false},
 		{true, false, false, true},
-		{false, true, true, false},
+		{false, true, true, false}
+	};
+
+	vector<vector<bool>> verticalBeehivePattern =
+	{
+		{false, true, false},
+		{true, false, true},
+		{true, false, true},
+		{false, true, false}
 	};
 
 	// Check every position in the grid for both patterns
@@ -235,13 +280,81 @@ bool isBlockOrBeehive(Grid<T>& grid)
 		for (int y = 0; y < cols; ++y)
 		{
 			// Check for pattern at this position
-			if (matchesPattern(grid, blockPattern, x, y) || matchesPattern(grid, beehivePattern, x, y))
+			if (matchesPattern(grid, blockPattern, x, y) || matchesPattern(grid, beehivePattern, x, y) || matchesPattern(grid, verticalBeehivePattern, x, y))
 			{
 				return true;
 			}
 		}
 	}
 	return false;
+}
+
+template <typename T>
+bool isBlinkerOrToad(Grid<T>& grid)
+{
+	// Define patterns
+	
+	// Blinker Phase 1
+	
+	vector<vector<bool>> blinkerPhase1 =
+	{
+		{true, true, true}
+	};
+
+	// Blinker Phase 2
+	vector<vector<bool>> blinkerPhase2 =
+	{
+		{true},
+		{true},
+		{true}
+	};
+
+	// Toad Phase 1
+	vector<vector<bool>> toadPhase1 =
+	{
+		{false, true, true, true},
+		{true, true, true, false}
+	};
+
+	vector<vector<bool>> toadPhase1Flipped =
+	{
+		{true, true, true, false},
+		{false, true, true, true}
+	};
+
+	vector<vector<bool>> toadPhase2 =
+	{
+		{false, false, true, false},
+		{true, false, false, true},
+		{true, false, false, true},
+		{false, true, false, false}
+	};
+
+	vector<vector<bool>> toadPhase2Flipped =
+	{
+		{false, true, false, false},
+		{true, false, false, true},
+		{true, false, false, true},
+		{false, false, true, false}
+	};
+	
+	int rows = grid.size();
+	int cols = grid[0].size();
+
+	// Check every position in the grid for both patterns
+	for (int x = 0; x < rows; ++x)
+	{
+		for (int y = 0; y < cols; ++y)
+		{
+			// Check for pattern at this position
+			if (matchesPattern(grid, blinkerPhase1, x, y) || matchesPattern(grid, blinkerPhase2, x, y) || matchesPattern(grid, toadPhase1, x, y) || matchesPattern(grid, toadPhase1Flipped, x, y) || matchesPattern(grid, toadPhase2, x, y) || matchesPattern(grid, toadPhase2Flipped, x, y))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+
 }
 
 template <typename T>
@@ -297,42 +410,95 @@ void UpdateCells(Grid<T> &grid)
 
 // Updates the grid for X cycles.
 template <typename T>
-void runSimulation(Grid<T> &grid) 
+void runSimulation(Grid<T> &grid, int* totalCyclesPtr) 
 {
 	// Runs the simulation for x cycles.
-	int currentCycle = 0;
 	int totalCycles;
-	int stableGenerations = 0; // Track how many 'frames' the pattern appears for.
+	int currentCycle = 0;
 
-	cout << endl << "Enter the number of phases to run: ";
-	cin >> totalCycles;
+	if (totalCyclesPtr == nullptr) {
+		cout << endl << "Enter the number of phases to run: ";
+		cin >> totalCycles;
+	}
+	else
+	{
+		totalCycles = *totalCyclesPtr;
+	}
 	
-	cout << grid;
-
 	while (currentCycle < totalCycles)
 	{
-		UpdateCells(grid);
-
-		// Check for block or beehive after each generation of cells.
-		if (currentCycle > 0 && isBlockOrBeehive(grid))
-		{
-			stableGenerations++;
-		}
-		else {
-			stableGenerations = 0;
-		}
-		
-		if (stableGenerations >= 2)
-		{
-			cout << endl << "Block or Beehive detected after " << currentCycle << " generations!";
-			return;
-		}
-
-		currentCycle++;
 		cout << grid;
+		UpdateCells(grid);
+		currentCycle++;
 	}
+}
 
-	cout << endl << "No pattern detected!";
+template <typename T>
+bool checkForStableStillLife(Grid<T>& grid, int &stableGenerations, int currentCycle){
+	if (currentCycle > 0 && isBlockOrBeehive(grid))
+	{
+		stableGenerations++;
+	}
+	else
+	{
+		stableGenerations = 0;
+	}
+	if (stableGenerations >= 2)
+	{
+		return true;
+	}
+	return false;
+
+}
+
+template <typename T>
+void runExperiment(Grid<T>& grid, int patternChoice)
+{
+	int experimentCount = 0;
+	int stableGenerations = 0; // Track how many 'frames' the pattern appears for.
+	bool patternFound = false;
+	int cycles = 1;
+	int totalCycles;
+	int totalCells;
+
+	cout << endl << "Enter the number of phases to run per experiement: ";
+	cin >> totalCycles;
+
+	cout << endl << "Enter the number of living cells per experiment: ";
+	cin >> totalCells;
+
+	while (!patternFound)
+	{
+		random_device rd; // Generate new seed.
+		unsigned int seed = rd();
+		experimentCount++;
+		createCells(grid);
+		scatterCells(grid, totalCells, seed);
+
+		cout << endl << "Running experiment #" << experimentCount;
+
+		int currentCycle = 0;
+		while (currentCycle < totalCycles && !patternFound)
+		{
+			runSimulation(grid, &cycles);
+			switch (patternChoice)
+			{
+				case 1:
+					// Check for block or beehive after each generation of cells.
+					if (checkForStableStillLife(grid, stableGenerations, currentCycle))
+					{
+						patternFound = true;
+						cout << endl << "Block or Beehive detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+						cout << seed;
+					}
+					break;
+
+
+			}
+			currentCycle++;
+		}
+		cleanupGrid(grid);
+	}
 }
 
 // Saves the Grid onto the system storage. Allows users to enter their own filenames.
@@ -375,7 +541,6 @@ bool loadSimulation(Grid<T> &grid)
 
 	// Clears the grid allowing for the loaded layout to be copied onto it.
 	cleanupGrid(grid);
-	grid.clear(); 
 
 
 	while (getline(gridLoadFile, loadedRow))
@@ -436,42 +601,71 @@ void displaySaveMenu(Grid<T> &grid)
 
 
 }
-void displayOptionMenu()
+
+int displayPatternMenu()
 {
+	int patternChoice;
+
+	cout << endl << "|| 1. Block and Beehive";
+	cout << endl << "|| 2. Blinker or toad";
+	cout << endl << "|| 3. Glider or LWSS";
+	cout << endl << "|| Choose a pattern to search for: ";
+	cin >> patternChoice;
+
+	return patternChoice;
+}
+
+int displayOptionMenu()
+{
+	int choice;
+
 	cout << endl << "|| 1. Create New Simulation";
 	cout << endl << "|| 2. Load Simulation from Storage";
-	cout << endl << "|| 3. Exit Game";
+	cout << endl << "|| 3. Run experiment to find pattern";
+	cout << endl << "|| 4. Exit Game";
+	cout << endl << "|| Select an option: ";
+
+	cin >> choice;
+	return choice;
 }
 template <typename T>
 void displayWelcomeMenu(Grid<T> &grid)
 {
 	int choice;
 	bool running = true;
+	unsigned int seed = 0;
 	cout << "|| Welcome to Ryan's version of John Conway's: Game of Life! ||";
 
 	while (running)
 	{
-		displayOptionMenu();
-		cout << endl << "Select an option: ";
-		cin >> choice;
+		choice = displayOptionMenu();
+		
 
 		switch (choice)
 		{
 			case 1:
 				grid = generateGrid<bool>();
+				random_device rd; // Generate new seed
+				seed = rd();
 				createCells(grid);
-				scatterCells(grid);
-				runSimulation(grid);
+				scatterCells(grid, NULL, seed);
+				runSimulation(grid, nullptr);
 				displaySaveMenu(grid);
 				break;
 			case 2:
 				if (loadSimulation(grid))
 				{
-					runSimulation(grid);
+					runSimulation(grid, nullptr);
 					displaySaveMenu(grid);
 				}
 				break;
 			case 3:
+				int patternChoice;
+				grid = generateGrid<bool>();
+				patternChoice = displayPatternMenu();
+				runExperiment(grid, patternChoice);
+				break;
+			case 4:
 				running = false; // Quit the loop;
 				break;
 			default:
@@ -485,7 +679,7 @@ void displayWelcomeMenu(Grid<T> &grid)
 
 int main()
 {
-	srand(time(0)); // Generate a new seed
+
 	Grid<bool> grid;
 
 	displayWelcomeMenu(grid);
