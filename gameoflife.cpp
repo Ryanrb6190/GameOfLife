@@ -4,6 +4,9 @@
 #include <ctime>
 #include <fstream>
 #include <string>
+#include <thread>
+#include <mutex>
+#include <limits>
 
 using namespace std;
 
@@ -174,39 +177,64 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 	return liveNeighbours;
 }
 
-// Updates Cells based on its fate based on neighbours.
 template <typename T>
-void UpdateCells(Grid<T> &grid)
+void updateCellsSegment(Grid<T>& grid, Grid<T>& newGrid, int startRow, int endRow)
 {
-	Grid<T> newGrid (grid.size(), vector<CellBase<T>*>(grid[0].size()));
-
-	for (int x = 0; x < grid.size(); x++)
+	for (int x = startRow; x < endRow; x++)
 	{
 		for (int y = 0; y < grid[x].size(); y++)
 		{
 			int totalNeighbours = countLiveNeighbours(grid, x, y);
 
-			if (totalNeighbours < 2 || totalNeighbours > 3)
+			if (totalNeighbours < 2 || totalNeighbours > 3) 
 			{
-				// Unpopulated case: Death
 				newGrid[x][y] = new NormalCell<T>(false);
 			}
-			else if (totalNeighbours == 3)
+			else if (totalNeighbours == 3) 
 			{
-				// Handle Reproduction
 				newGrid[x][y] = new NormalCell<T>(true);
 			}
-			else
+			else 
 			{
 				newGrid[x][y] = new NormalCell<T>(grid[x][y]->isAlive());
 			}
-			// No change needed if total neighbours == 2.
 		}
+	}
+}
+
+
+
+
+
+
+
+
+// Updates Cells in parallel.
+template <typename T>
+void UpdateCells(Grid<T> &grid)
+{
+	Grid<T> newGrid (grid.size(), vector<CellBase<T>*>(grid[0].size()));
+	vector<thread> threads;
+
+	int numThreads = thread::hardware_concurrency();
+	int rowsPerThread = grid.size() / numThreads;
+
+	for (int i = 0; i < numThreads; ++i)
+	{
+		int startRow = i * rowsPerThread;
+		int endRow = (i == numThreads - 1) ? grid.size() : startRow + rowsPerThread;
+		threads.push_back(thread(updateCellsSegment<T>, ref(grid), ref(newGrid), startRow, endRow));
+	}
+
+	for (auto& th : threads)
+	{
+		th.join(); // Wait for all threads to finish
 	}
 
 	cleanupGrid(grid);
 	grid = newGrid;
 }
+
 
 // Updates the grid for X cycles.
 template <typename T>
