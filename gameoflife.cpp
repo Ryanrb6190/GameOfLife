@@ -126,18 +126,23 @@ void createCells(Grid<T> &grid)
 
 // Randomly distribute cells across the grid.
 template <typename T>
-void scatterCells(Grid<T> &grid, int numCells, unsigned int& seed)
+void scatterCells(Grid<T> &grid, int* numCellsPtr, unsigned int& seed)
 {
 	mt19937 gen(seed);
 	uniform_int_distribution<> xDist(0, grid.size() - 1);
 	uniform_int_distribution<> yDist(0, grid[0].size() - 1);
-
+	int numCells;
 	int totalCells = 0;
 
-	if (!numCells) {
-		cout << endl << "Enter total of alive cells: ";
+	if (numCellsPtr == nullptr) {
+		cout << endl << "Enter the number of alive cells: ";
 		cin >> numCells;
 	}
+	else
+	{
+		numCells = *numCellsPtr;
+	}
+
 	
 	// Ensure the number of live cells is not greater than the total grid spaces.
 	int maxCells = grid.size() * grid[0].size();
@@ -452,6 +457,43 @@ bool checkForStableStillLife(Grid<T>& grid, int &stableGenerations, int currentC
 }
 
 template <typename T>
+bool checkForStableOscillator(Grid<T>& grid, int& stableGenerations, int currentCycle)
+{
+	if (currentCycle > 0 && isBlinkerOrToad(grid))
+	{
+		stableGenerations++;
+	}
+	else
+	{
+		stableGenerations = 0;
+	}
+	if (stableGenerations >= 3)
+	{
+		return true;
+	}
+	return false;
+}
+
+template <typename T>
+bool checkForDeadCells(Grid<T>& grid)
+{
+	int rows = grid.size();
+	int cols = grid[0].size();
+
+	for (int x = 0; x < rows; ++x)
+	{
+		for (int y = 0; y < cols; ++y)
+		{
+			if (grid[x][y]->isAlive())
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+template <typename T>
 void runExperiment(Grid<T>& grid, int patternChoice)
 {
 	int experimentCount = 0;
@@ -473,7 +515,7 @@ void runExperiment(Grid<T>& grid, int patternChoice)
 		unsigned int seed = rd();
 		experimentCount++;
 		createCells(grid);
-		scatterCells(grid, totalCells, seed);
+		scatterCells(grid, &totalCells, seed);
 
 		cout << endl << "Running experiment #" << experimentCount;
 
@@ -489,11 +531,23 @@ void runExperiment(Grid<T>& grid, int patternChoice)
 					{
 						patternFound = true;
 						cout << endl << "Block or Beehive detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
-						cout << seed;
 					}
 					break;
+				case 2:
+					// Check for blinker or toad after each geneation of cells
+					if (checkForStableOscillator(grid, stableGenerations, currentCycle))
+					{
+						patternFound = true;
+						cout << endl << "Blinker or Toad detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+					}
 
 
+			}
+			if (checkForDeadCells(grid))
+			{
+				cout << grid;
+				cout << endl << "All Cells for experiment #" << experimentCount << " have died. Starting next experiment.";
+				break;
 			}
 			currentCycle++;
 		}
@@ -648,7 +702,7 @@ void displayWelcomeMenu(Grid<T> &grid)
 				random_device rd; // Generate new seed
 				seed = rd();
 				createCells(grid);
-				scatterCells(grid, NULL, seed);
+				scatterCells(grid, nullptr, seed);
 				runSimulation(grid, nullptr);
 				displaySaveMenu(grid);
 				break;
