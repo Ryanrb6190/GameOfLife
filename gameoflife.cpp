@@ -11,6 +11,8 @@
 
 using namespace std;
 
+mutex mtx;
+
 template <typename T>
 class CellBase
 {
@@ -193,16 +195,16 @@ int countLiveNeighbours(Grid<T>& grid, int x, int y)
 	return liveNeighbours;
 }
 
+// Function to check whether an orientation of the pattern fits the grid
 template <typename T>
-bool matchesPattern(Grid<T>& grid, const vector<vector<bool>>& pattern, int startX, int startY)
+bool patternFits(Grid<T>& grid, const vector<vector<bool>>& pattern, int startX, int startY)
 {
 	int patternRows = pattern.size();
 	int patternCols = pattern[0].size();
 	int gridRows = grid.size();
 	int gridCols = grid[0].size();
 
-	// Check if the pattern fits within the grid boundaries
-
+	// Check if pattern fits within grid boundaries
 	if (startX + patternRows > gridRows || startY + patternCols > gridCols)
 	{
 		return false;
@@ -218,35 +220,97 @@ bool matchesPattern(Grid<T>& grid, const vector<vector<bool>>& pattern, int star
 			}
 		}
 	}
+	return true;
+}
 
-	// Ensure that no extra live cells exist
-	for (int i = -1; i < patternRows + 1; ++i)
+// Function that rotates the pattern by 90 degrees.
+template <typename T>
+vector<vector<T>> rotatePattern(const vector<vector<T>>& pattern)
+{
+	int rows = pattern.size();
+	int cols = pattern[0].size();
+	vector<vector<T>> rotated(cols, vector<T>(rows));
+
+	for (int i = 0; i < rows; ++i)
 	{
-		for (int j = -1; j < patternCols + 1; ++j)
+		for (int j = 0; j < cols; ++j)
 		{
-			// Skip cells inside the pattern
-			if (i >= 0 && i < patternRows && j >= 0 && j < patternCols)
-			{
-				continue;
-			}
+			rotated[j][rows - 1 - i] = pattern[i][j];
+		}
+	}
+	return rotated;
+}
 
-			int checkX = startX + i;
-			int checkY = startY + j;
+// Function that flips a pattern horizontally
+template <typename T>
+vector<vector<T>> flipHorizontal(const vector<vector<T>>& pattern)
+{
+	int rows = pattern.size();
+	vector<vector<T>> hFlipped = pattern;
 
-			// Ensure  the cell is within grid boundaries
-			if (checkX >= 0 && checkX < gridRows && checkY >= 0 && checkY < gridCols)
-			{
-				// If any surrounding cell is alive, return false
-				if (grid[checkX][checkY]->isAlive())
-				{
-					return false;
-				}
-			}
+	for (int i = 0; i < rows; ++i)
+	{
+		reverse(hFlipped[i].begin(), hFlipped[i].end());
+	}
+	return hFlipped;
+}
+
+// Function that flips a pattern vertically
+template <typename T>
+vector<vector<T>> flipVertical(const vector<vector<T>>& pattern)
+{
+	vector<vector<T>> vFlipped = pattern;
+	reverse(vFlipped.begin(), vFlipped.end());
+
+	return vFlipped;
+}
+
+
+template <typename T>
+bool matchesPattern(Grid<T>& grid, const vector<vector<bool>>& pattern, int startX, int startY)
+{
+	bool found = false;
+	vector<thread> threads;
+
+	auto checkPattern = [&](const vector<vector<bool>>& p)
+	{
+		if (patternFits(grid, p, startX, startY))
+		{
+			lock_guard<mutex> lock(mtx); // lock when modifying shared data
+			found = true;
+		}
+	};
+
+	// Create varients of the pattern that are rotated and flipped on each axis.
+	vector<vector<bool>> rotatedPattern = pattern;
+	vector<vector<bool>> horizontalPattern = flipHorizontal(pattern);
+	vector<vector<bool>> verticalPattern = flipVertical(pattern);
+
+	// Start threads for each rotation and flip combination
+	for (int i = 0; i < 4; ++i)
+	{
+		threads.push_back(thread(checkPattern, rotatedPattern));
+		threads.push_back(thread(checkPattern, flipHorizontal(rotatedPattern)));
+		threads.push_back(thread(checkPattern, flipVertical(rotatedPattern)));
+		threads.push_back(thread(checkPattern, horizontalPattern));
+		threads.push_back(thread(checkPattern, flipVertical(horizontalPattern)));
+		threads.push_back(thread(checkPattern, verticalPattern));
+		threads.push_back(thread(checkPattern, flipHorizontal(verticalPattern)));
+
+		rotatedPattern = rotatePattern(rotatedPattern);
+	}
+
+	for (auto& th : threads)
+	{
+		if (th.joinable())
+		{
+			th.join();
 		}
 	}
 
-	return true;
+	return found;
 }
+
 
 template <typename T>
 bool isBlockOrBeehive(Grid<T>& grid)
@@ -271,21 +335,13 @@ bool isBlockOrBeehive(Grid<T>& grid)
 		{false, true, true, false}
 	};
 
-	vector<vector<bool>> verticalBeehivePattern =
-	{
-		{false, true, false},
-		{true, false, true},
-		{true, false, true},
-		{false, true, false}
-	};
-
 	// Check every position in the grid for both patterns
 	for (int x = 0; x < rows; ++x)
 	{
 		for (int y = 0; y < cols; ++y)
 		{
 			// Check for pattern at this position
-			if (matchesPattern(grid, blockPattern, x, y) || matchesPattern(grid, beehivePattern, x, y) || matchesPattern(grid, verticalBeehivePattern, x, y))
+			if (matchesPattern(grid, blockPattern, x, y) || matchesPattern(grid, beehivePattern, x, y))
 			{
 				return true;
 			}
@@ -306,25 +362,13 @@ bool isBlinkerOrToad(Grid<T>& grid)
 		{true, true, true}
 	};
 
-	// Blinker Phase 2
-	vector<vector<bool>> blinkerPhase2 =
-	{
-		{true},
-		{true},
-		{true}
-	};
-
+	// Don't need phase 2 as it is a rotation
+	// 
 	// Toad Phase 1
 	vector<vector<bool>> toadPhase1 =
 	{
 		{false, true, true, true},
 		{true, true, true, false}
-	};
-
-	vector<vector<bool>> toadPhase1Flipped =
-	{
-		{true, true, true, false},
-		{false, true, true, true}
 	};
 
 	vector<vector<bool>> toadPhase2 =
@@ -333,14 +377,6 @@ bool isBlinkerOrToad(Grid<T>& grid)
 		{true, false, false, true},
 		{true, false, false, true},
 		{false, true, false, false}
-	};
-
-	vector<vector<bool>> toadPhase2Flipped =
-	{
-		{false, true, false, false},
-		{true, false, false, true},
-		{true, false, false, true},
-		{false, false, true, false}
 	};
 	
 	int rows = grid.size();
@@ -352,7 +388,7 @@ bool isBlinkerOrToad(Grid<T>& grid)
 		for (int y = 0; y < cols; ++y)
 		{
 			// Check for pattern at this position
-			if (matchesPattern(grid, blinkerPhase1, x, y) || matchesPattern(grid, blinkerPhase2, x, y) || matchesPattern(grid, toadPhase1, x, y) || matchesPattern(grid, toadPhase1Flipped, x, y) || matchesPattern(grid, toadPhase2, x, y) || matchesPattern(grid, toadPhase2Flipped, x, y))
+			if (matchesPattern(grid, blinkerPhase1, x, y) || matchesPattern(grid, toadPhase1, x, y) || matchesPattern(grid, toadPhase2, x, y))
 			{
 				return true;
 			}
@@ -361,6 +397,69 @@ bool isBlinkerOrToad(Grid<T>& grid)
 	return false;
 
 }
+
+template <typename T>
+bool isGliderOrLWSS(Grid<T>& grid)
+{
+	// Define patterns
+
+	// Glider Phase 1
+	
+	vector<vector<bool>> gliderPhase1 =
+	{
+		{false, true, false},
+		{false, false, true},
+		{true, true, true}
+	};
+
+	// Glider Phase 2
+
+	vector<vector<bool>> gliderPhase2 =
+	{
+		{true, false, true},
+		{false, true, true},
+		{false, true, false}
+	};
+
+	// LWSS Phase 1
+
+	vector<vector<bool>> lwssPhase1 =
+	{
+		{false, true, false, false, true},
+		{true, false, false, false, false},
+		{true, false, false, false, true},
+		{true, true, true, true, false}
+	};
+
+	// LWSS Phase 2
+
+	vector<vector<bool>> lwssPhase2 =
+	{
+		{false, true, true, false, false},
+		{true, true, false, true, true},
+		{false, true, true, true, true},
+		{false, false, true, true, false}
+	};
+	// Don't need other phases as they are just rotations of phase 1 and 2
+
+	int rows = grid.size();
+	int cols = grid[0].size();
+
+	// Check every position in the grid for both patterns
+	for (int x = 0; x < rows; ++x)
+	{
+		for (int y = 0; y < cols; ++y)
+		{
+			// Check for pattern at this position
+			if (matchesPattern(grid, gliderPhase1, x, y) || matchesPattern(grid, gliderPhase2, x, y) || matchesPattern(grid, lwssPhase1, x, y) || matchesPattern(grid, lwssPhase2, x, y))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 
 template <typename T>
 void updateCellsSegment(Grid<T>& grid, Grid<T>& newGrid, int startRow, int endRow)
@@ -475,6 +574,25 @@ bool checkForStableOscillator(Grid<T>& grid, int& stableGenerations, int current
 }
 
 template <typename T>
+bool checkForStableSpaceship(Grid<T>& grid, int& stableGenerations, int currentCycle)
+{
+	if (currentCycle > 0 && isGliderOrLWSS(grid))
+	{
+		stableGenerations++;
+	}
+	else
+	{
+		stableGenerations = 0;
+	}
+	if (stableGenerations >= 3)
+	{
+		return true;
+	}
+	return false;
+}
+
+
+template <typename T>
 bool checkForDeadCells(Grid<T>& grid)
 {
 	int rows = grid.size();
@@ -497,11 +615,15 @@ template <typename T>
 void runExperiment(Grid<T>& grid, int patternChoice)
 {
 	int experimentCount = 0;
+	int maxExperimentCount;
 	int stableGenerations = 0; // Track how many 'frames' the pattern appears for.
 	bool patternFound = false;
 	int cycles = 1;
 	int totalCycles;
 	int totalCells;
+	
+	cout << endl << "Enter the max number of experiments: ";
+	cin >> maxExperimentCount;
 
 	cout << endl << "Enter the number of phases to run per experiement: ";
 	cin >> totalCycles;
@@ -509,7 +631,7 @@ void runExperiment(Grid<T>& grid, int patternChoice)
 	cout << endl << "Enter the number of living cells per experiment: ";
 	cin >> totalCells;
 
-	while (!patternFound)
+	while (!patternFound && experimentCount < maxExperimentCount + 1)
 	{
 		random_device rd; // Generate new seed.
 		unsigned int seed = rd();
@@ -539,10 +661,33 @@ void runExperiment(Grid<T>& grid, int patternChoice)
 					{
 						patternFound = true;
 						cout << endl << "Blinker or Toad detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+						break;
 					}
+					break;
+				case 3:
+					// Check for glider or Lwss after each generation of cells
+					if (checkForStableSpaceship(grid, stableGenerations, currentCycle))
+					{
+						patternFound = true;
+						cout << endl << "Glider or LWSS detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+						break;
+					}
+					break;
 
 
 			}
+
+			if (patternFound)
+			{
+				break;
+			}
+			
+			if (experimentCount > maxExperimentCount)
+			{
+				cout << endl << maxExperimentCount << " experiments have been completed.";
+				break;
+			}
+
 			if (checkForDeadCells(grid))
 			{
 				cout << grid;
@@ -730,6 +875,8 @@ void displayWelcomeMenu(Grid<T> &grid)
 		}
 	}
 }
+
+
 
 int main()
 {
