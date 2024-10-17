@@ -584,7 +584,7 @@ bool checkForStableSpaceship(Grid<T>& grid, int& stableGenerations, int currentC
 	{
 		stableGenerations = 0;
 	}
-	if (stableGenerations >= 3)
+	if (stableGenerations >= 5)
 	{
 		return true;
 	}
