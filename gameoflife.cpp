@@ -1405,6 +1405,30 @@ void test_isGliderOrLWSS(Grid<T>& grid)
 	grid[2][3]->setAlive(false);
 	grid[3][3]->setAlive(false);
 
+	// Test Rotated LWSS
+	grid[0][0]->setAlive(true);
+	grid[1][0]->setAlive(true);
+	grid[2][0]->setAlive(true);
+	grid[0][1]->setAlive(true);
+	grid[3][1]->setAlive(true);
+	grid[0][2]->setAlive(true);
+	grid[0][3]->setAlive(true);
+	grid[1][4]->setAlive(true);
+	grid[3][4]->setAlive(true);
+
+	bool foundRotatedLWSS = isGliderOrLWSS(grid);
+	assert(foundRotatedLWSS == true);
+
+	grid[0][0]->setAlive(false);
+	grid[1][0]->setAlive(false);
+	grid[2][0]->setAlive(false);
+	grid[0][1]->setAlive(false);
+	grid[3][1]->setAlive(false);
+	grid[0][2]->setAlive(false);
+	grid[0][3]->setAlive(false);
+	grid[1][4]->setAlive(false);
+	grid[3][4]->setAlive(false);
+
 	cout << endl << "All tests passed for isGliderOrLWSS()";
 }
 
