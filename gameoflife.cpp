@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <map>
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
@@ -160,7 +161,7 @@ void createCells(Grid<T> &grid)
 
 // Randomly distribute cells across the grid.
 template <typename T>
-void scatterCells(Grid<T> &grid, int* numCellsPtr, unsigned int& seed)
+int scatterCells(Grid<T> &grid, int* numCellsPtr, unsigned int& seed)
 {
 	mt19937 gen(seed);
 	uniform_int_distribution<> xDist(0, grid.size() - 1);
@@ -198,6 +199,7 @@ void scatterCells(Grid<T> &grid, int* numCellsPtr, unsigned int& seed)
 			totalCells++;
 		}
 	}
+	return numCells;
 }
 
 // Count the total of live cells around cell at grid (x, y)
@@ -433,6 +435,14 @@ bool isBlockOrBeehive(Grid<T>& grid)
 	{
 		for (int y = 0; y < cols; ++y)
 		{
+			// Count neighbours if cell is dead and has no neighbours skip this cell
+
+			int neighbours = countLiveNeighbours(grid, x, y);
+			if (grid[x][y] != nullptr && !grid[x][y]->isAlive() && neighbours == 0)
+			{
+				continue;
+			}
+
 			// Check for pattern at this position
 			if (matchesPattern(grid, blockPattern, x, y) || matchesPattern(grid, beehivePattern, x, y))
 			{
@@ -487,6 +497,13 @@ bool isBlinkerOrToad(Grid<T>& grid)
 	{
 		for (int y = 0; y < cols; ++y)
 		{
+			// Count neighbours if cell is dead and has no neighbours skip this cell
+
+			int neighbours = countLiveNeighbours(grid, x, y);
+			if (grid[x][y] != nullptr && !grid[x][y]->isAlive() && neighbours == 0)
+			{
+				continue;
+			}
 			// Check for pattern at this position
 			if (matchesPattern(grid, blinkerPhase1, x, y) || matchesPattern(grid, blinkerPhase2, x, y) || matchesPattern(grid, toadPhase1, x, y) || matchesPattern(grid, toadPhase2, x, y))
 			{
@@ -550,6 +567,14 @@ bool isGliderOrLWSS(Grid<T>& grid)
 	{
 		for (int y = 0; y < cols; ++y)
 		{
+			// Count neighbours if cell is dead and has no neighbours skip this cell
+
+			int neighbours = countLiveNeighbours(grid, x, y);
+			if (grid[x][y] != nullptr && !grid[x][y]->isAlive() && neighbours == 0)
+			{
+				continue;
+			}
+
 			// Check for pattern at this position
 			if (matchesPattern(grid, gliderPhase1, x, y) || matchesPattern(grid, gliderPhase2, x, y) || matchesPattern(grid, lwssPhase1, x, y) || matchesPattern(grid, lwssPhase2, x, y))
 			{
@@ -568,7 +593,19 @@ void updateCellsSegment(Grid<T>& grid, Grid<T>& newGrid, int startRow, int endRo
 	{
 		for (int y = 0; y < grid[x].size(); y++)
 		{
+			if (grid[x][y] == nullptr)
+			{
+				newGrid[x][y] == nullptr;
+				continue;
+			} 
+			
 			int totalNeighbours = countLiveNeighbours(grid, x, y);
+
+			if (!grid[x][y]->isAlive() && totalNeighbours == 0)
+			{
+				newGrid[x][y] = new NormalCell<T>(false);
+				continue;
+			}
 
 			if (totalNeighbours < 2 || totalNeighbours > 3) 
 			{
@@ -608,7 +645,9 @@ void UpdateCells(Grid<T> &grid)
 		th.join(); // Wait for all threads to finish
 	}
 
+
 	cleanupGrid(grid);
+
 	grid = newGrid;
 }
 
@@ -774,9 +813,9 @@ void runExperiment(Grid<T>& grid)
 		unsigned int seed = rd();
 		experimentCount++;
 		createCells(grid);
-		scatterCells(grid, &totalCells, seed);
+		totalCells = scatterCells(grid, &totalCells, seed);
 
-		cout << endl << "Running experiment #" << experimentCount;
+		cout << endl << "Running experiment #" << experimentCount << endl;
 
 		int currentCycle = 0;
 		while (currentCycle < totalCycles && !patternFound)
@@ -790,6 +829,7 @@ void runExperiment(Grid<T>& grid)
 					{
 						patternFound = true;
 						cout << endl << "Block or Beehive detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+						calculateERN(grid, totalCells, &patternChoice);
 					}
 					break;
 				case 2:
@@ -798,6 +838,7 @@ void runExperiment(Grid<T>& grid)
 					{
 						patternFound = true;
 						cout << endl << "Blinker or Toad detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+						calculateERN(grid, totalCells, &patternChoice);
 					}
 					break;
 				case 3:
@@ -806,6 +847,7 @@ void runExperiment(Grid<T>& grid)
 					{
 						patternFound = true;
 						cout << endl << "Glider or LWSS detected in experiment #" << experimentCount << " after " << currentCycle << " generations!";
+						calculateERN(grid, totalCells, &patternChoice);
 					}
 					break;
 
@@ -1226,8 +1268,9 @@ void displayWelcomeMenu(Grid<T> &grid)
 				random_device rd; // Generate new seed
 				seed = rd();
 				createCells(grid);
-				scatterCells(grid, nullptr, seed);
+				int totalCells = scatterCells(grid, nullptr, seed);
 				runSimulation(grid, nullptr);
+				calculateERN(grid, totalCells, nullptr);
 				//displaySaveMenu(grid);
 				break;
 			}
@@ -1256,6 +1299,7 @@ void displayWelcomeMenu(Grid<T> &grid)
 						createCells(grid);
 						scatterCells(grid, &totalCells, seed);
 						runSimulation(grid, &totalCycles);
+						calculateERN(grid, totalCells, nullptr);
 						break;
 					}
 				}
@@ -1283,7 +1327,110 @@ void displayWelcomeMenu(Grid<T> &grid)
 		}
 	}
 }
+template <typename T>
+void calculateERN(Grid<T> grid, int totalCells, int* patternChoice)
+{
+	int xSpaces = grid.size();
+	int ySpaces = grid[0].size();
+	// Create a dictionary of patterns with the phase that has the minium amount of available cells to appear.
+	int ern = xSpaces + ySpaces + totalCells;
 
+	if (patternChoice != nullptr)
+	{
+		map<string, int> minGridForPattern = {
+			{"Block", 4},
+			{"Beehive", 12},
+			{"Blinker", 9},
+			{"Toad", 16},
+			{"Glider", 9},
+			{"LWSS", 20}
+		};
+
+		switch (*patternChoice)
+		{
+		case 1:
+		{
+			int blockMinCells = minGridForPattern["Block"];
+			int beehiveMinCells = minGridForPattern["Beehive"];
+			int gridSize = xSpaces * ySpaces;
+
+			if (gridSize < blockMinCells && gridSize < beehiveMinCells) {
+				cout << endl << "A block or a beehive cannot appear in a " << xSpaces << "x" << ySpaces << "grid. ERN Unavailable.";
+				break;
+			}
+			else if (gridSize >= blockMinCells && gridSize < beehiveMinCells) {
+				cout << endl << "A beehive cannot appear in a " << xSpaces << "x" << ySpaces << "grid.";
+				cout << endl << "ERN for Block is : " << ern;
+				break;
+			}
+			else {
+				cout << endl << "The ERN for a block or a beehive in a " << xSpaces << "x" << ySpaces << " grid is: " << ern;
+				break;
+			}
+			break;
+		}
+
+		case 2:
+		{
+			int blinkerMinCells = minGridForPattern["Blinker"];
+			int toadMinCells = minGridForPattern["Toad"];
+			int gridSize = xSpaces * ySpaces;
+
+			if (gridSize < blinkerMinCells && gridSize < toadMinCells)
+			{
+				cout << endl << "A blinker or a toad cannot appear in a " << xSpaces << "x" << ySpaces << " grid. ERN Unavailable.";
+				break;
+			}
+			else if (gridSize >= blinkerMinCells && gridSize < toadMinCells)
+			{
+				cout << endl << "A toad cannot appear in a " << xSpaces << "x" << ySpaces << " grid.";
+				cout << endl << "ERN for blinker is: " << ern;
+				break;
+			}
+			else
+			{
+				cout << endl << "The ERN for a blinker or a toad in a " << xSpaces << "x" << ySpaces << " grid is: " << ern;
+				break;
+			}
+			break;
+		}
+		case 3:
+		{
+			int gliderMinCells = minGridForPattern["Glider"];
+			int lwssMinCells = minGridForPattern["LWSS"];
+			int gridSize = xSpaces * ySpaces;
+
+			if (gridSize < gliderMinCells && gridSize < lwssMinCells)
+			{
+				cout << endl << "A glider or a LWSS cannot appear in a " << xSpaces << "x" << ySpaces << " grid. ERN Unavailable";
+				break;
+			}
+			else if (gridSize >= gliderMinCells && gridSize < lwssMinCells)
+			{
+				cout << endl << "A LWSS cannot appear in a " << xSpaces << "x" << ySpaces << " grid.";
+				cout << "The ERN for a glider is: " << ern;
+				break;
+			}
+			else
+			{
+				cout << endl << "The ERN for a glider or a LWSS in a " << xSpaces << "x" << ySpaces << " grid is: " << ern;
+				break;
+			}
+			break;
+		}
+
+		default:
+			cout << endl << "Unknown pattern. ERN Unavailable";
+		}
+	}
+
+	cout << endl << "The ERN for a " << xSpaces << "x" << ySpaces << " grid with " << totalCells << " live cells is: " << ern;
+}
+
+void displayLowestPossibleERN()
+{
+
+}
 
 
 int main()
