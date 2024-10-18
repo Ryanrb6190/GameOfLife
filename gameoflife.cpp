@@ -818,6 +818,7 @@ int menu_displayPatternMenu()
 template <typename T>
 void runExperiment(Grid<T>& grid)
 {
+	int MAX_EXPERIMENT = 300;
 	int patternChoice = menu_displayPatternMenu();
 	int experimentCount = 0;
 	int stableGenerations = 0; // Track how many 'frames' the pattern appears for.
@@ -845,7 +846,7 @@ void runExperiment(Grid<T>& grid)
 		}
 	}
 
-	while (!patternFound)
+	while (!patternFound && experimentCount < MAX_EXPERIMENT)
 	{
 		random_device rd; // Generate new seed.
 		unsigned int seed = rd();
@@ -903,12 +904,16 @@ void runExperiment(Grid<T>& grid)
 			if (checkForDeadCells(grid))
 			{
 				cout << grid;
-				cout << endl << "All Cells for experiment #" << experimentCount << " have died. Starting next experiment.";
+				cout << endl << "All Cells for experiment #" << experimentCount << " have died.";
 				break;
 			}
 			currentCycle++;
 		}
 		cleanupGrid(grid);
+		if (experimentCount == MAX_EXPERIMENT)
+		{
+			cout << endl << "Error: Hard Limit Reached. Start another experiment";
+		}
 	}
 }
 
